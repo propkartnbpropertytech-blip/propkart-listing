@@ -1,110 +1,231 @@
-# 🏡 PropKart Listing
+# 🏡 PropKart Listing (`propkart-listing`)
 
-> **Public Real Estate Directory & Verified Property Showcase**  
-> Dedicated, modern light-theme property showcase application for prospective buyers, tenants, and investors across Gujarat. Live at `listing.nbpropertytech.com`.
+> **Official Public Real Estate Directory & Verified Property Showcase**  
+> Powered by **NB Property Technology Pvt Ltd** • Gujarat RERA Registered: `AG/GJ/AHMEDABAD/AHMEDABAD CITY/AA06870/170831R1`  
+> Repository: [`propkart-listing`](https://github.com/propkartnbpropertytech-blip/propkart-listing)  
+> Live Showcase: `https://listing.nbpropertytech.com`
 
 ---
 
 ## 🌟 Overview
 
-**PropKart Listing** is the public-facing inventory showcase of the PropKart ecosystem. Built entirely with a crisp, modern **Light Theme**, it presents verified properties synchronized with the PropKart Operations Desk (`panel.nbpropertytech.com`).
+**PropKart Listing** is the official public real estate showcase platform of the PropKart ecosystem, curated strictly for **Ahmedabad** prime residential, commercial, industrial, and investment properties.
+
+Engineered with an ultra-clean, Apple-inspired **100% Light Theme**, PropKart Listing presents handpicked, verified inventory across three core real estate pillars:
+1. **🏢 Pre-sales Launches**: Upcoming builder projects, developer launches, RERA registered developments, and early-bird investor pricing.
+2. **🔑 Premium Rentals**: Verified high-floor residential apartments, commercial corporate spaces, and industrial sheds for lease.
+3. **🏷️ High-Yield Re-sale**: Title-verified direct-owner resale flats, luxury bungalows, pre-leased offices, and investment plots.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│               PropKart Listing (Public)                 │
-│        Live at: listing.nbpropertytech.com              │
-│  • 100% Light Theme          • Custom Architectural BG  │
-│  • 3 Tabs: Pre-sales/Rent/Sale • Scoped Universal Search │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-                           ▼ HTTPS
-┌─────────────────────────────────────────────────────────┐
-│               Shared Backend API & VPS                  │
-│       Node.js / Express • PostgreSQL • Traefik          │
-└──────────────────────────▲──────────────────────────────┘
-                           │
-                           ▼ HTTPS
-┌─────────────────────────────────────────────────────────┐
-│              PropKart Panel (Admin / Ops)               │
-│  • Live Showcase Toggles     • PropKart Software Sync   │
-│  • Pre-sales Form Builder    • Lead Conversion          │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│               PropKart Listing (Public Showcase)                │
+│         https://github.com/propkartnbpropertytech-blip/        │
+│                       propkart-listing                          │
+│   • Ahmedabad-Only Directory     • 3D Dual-Tone Typography      │
+│   • Universal Search Bar         • Interactive Channel Cards    │
+│   • Elevated Property Tiles      • Instant WhatsApp Inquiries   │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼ HTTPS
+┌─────────────────────────────────────────────────────────────────┐
+│                  Shared API & Production VPS                    │
+│            Node.js / Express • PostgreSQL • Hostinger           │
+│                 https://propconnect.nbpropertytech.com          │
+└───────────────────────────────▲─────────────────────────────────┘
+                                │
+         ┌──────────────────────┴──────────────────────┐
+         ▼                                             ▼
+┌─────────────────────────────┐         ┌─────────────────────────────┐
+│    PropConnect Gateway      │         │      PropKart Panel         │
+│     (Property Intake)       │         │    (Operations Desk)        │
+│  • Rent & Re-sale Intake    │         │  • "Show on Listing" Toggle │
+│  • Direct-Owner Verification│         │  • Real-time Inventory Sync │
+└─────────────────────────────┘         └─────────────────────────────┘
 ```
 
 ---
 
-## ✨ Features
+## ✨ Design & Experience Highlights
 
-- **100% Light Theme Design:** Pristine whites, soft off-whites, frosted glassmorphic card containers, and emerald accents.
-- **Architectural Hero Background:** Features an iconic modern villa over lush nature with sunlight lighting.
-- **The 3 Main Showcase Tabs:**
-  - `🏢 Pre-sales`: Upcoming projects, new launches, RERA registration numbers, and possession timelines.
-  - `🔑 Rent`: High-floor apartments, corporate offices, industrial sheds, and storage land for rent.
-  - `🏷️ Re-sale`: Verified resale flats, luxury independent bungalows, pre-leased offices, and investment land.
-- **Universal Scoped Search:**
-  - Keyword search across project titles, developer/builder names, localities, and cities.
-  - Asset category filtering: `Residential`, `Commercial`, `Industrial`, `Land & Plot`.
-  - Configuration filtering: `1 BHK`, `2 BHK`, `3 BHK`, `4+ BHK`.
-  - When searching within a tab (e.g. "Pre-sales"), the search is scoped particularly to that category.
-- **Strict Published Visibility:** Displays strictly verified properties where the toggle is turned ON (`is_published: true`) in PropKart Panel.
-- **Interactive Property Detail Lightbox:** Complete architectural specifications, photo gallery, RERA certification badge, and location navigation.
-- **One-Click WhatsApp Outreach:** Instant scheduling of site visits and inquiry dispatch directly via WhatsApp.
+- **Universal Search Experience**:
+  - Full-width landing page search bar with default blinking cursor and clean ellipsis (`Search Listing...`).
+  - Seamlessly searches titles, localities, developers, and property types.
+- **Auto-Adjustable 3D Dual-Tone Typography**:
+  - Header title *"Discover Your Next Exclusive Home"* rendered in premium 3D dual-tone styling with fluid `clamp()` responsive scaling across all screen sizes.
+- **Scroll-Triggered Channel Showcase**:
+  - The hero landing page displays the 3D typography and universal search above the fold.
+  - Scrolling down reveals the 3 distinct cards (**Pre-sales**, **Rent**, **Re-sale**), each featuring high-resolution architectural visuals and rich hover descriptions.
+- **Elevated Property Tiles**:
+  - Property cards in all categories render with default elevated shadow aesthetics (`shadow-md hover:shadow-xl`), rounded contours, and clear pricing badges.
+- **Rent & Re-sale "Show on Listing" Live Ingestion**:
+  - Verified properties submitted via PropConnect are published directly to the public Listing showcase with one click from the Operations Desk.
+  - Zero-reload real-time cross-tab synchronization via `BroadcastChannel('propkart_listing_channel')`.
+- **Dedicated Assistance & List Property Hub**:
+  - Assistance hotline and listing options available in the footer and quick-action modals.
+- **Strict Location Scope**:
+  - Focused strictly on Ahmedabad prime growth corridors (SG Highway, Sindhu Bhavan, Bopal, Satellite, Prahlad Nagar, GIFT City corridor, Sanand, etc.).
 
 ---
 
-## 🛠️ Local Development
+## 🛠️ Tech Stack
+
+- **Framework**: [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **Bundler**: [Vite 6](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS 3](https://tailwindcss.com/) + PostCSS
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Real-Time Cross-Tab Sync**: HTML5 BroadcastChannel API + Storage Events
+- **CI/CD**: GitHub Actions + Hostinger VPS automated deployment
+
+---
+
+## 💻 Local Development
 
 ### Prerequisites
 - Node.js `>= 18.0.0`
 - npm `>= 9.0.0`
 
-### Setup
+### Quick Start
 
 ```bash
-# 1. Navigate to directory
-cd PropKart_Listing
+# 1. Clone repository
+git clone https://github.com/propkartnbpropertytech-blip/propkart-listing.git
+cd propkart-listing
 
 # 2. Install dependencies
 npm install
 
-# 3. Start local development server (Port 3002)
+# 3. Configure environment
+cp .env.example .env
+
+# 4. Start local development server (Port 3004)
 npm run dev
-```
 
-The application will run locally at `http://localhost:3002`.
-
-### Production Build
-
-```bash
-# Compile and bundle
+# 5. Production build and typecheck
 npm run build
 
-# Preview build locally
+# 6. Preview production build
 npm run preview
+```
+
+The application runs locally at `http://localhost:3004`.
+
+---
+
+## ⚙️ Environment Variables
+
+Configure `.env` using `.env.example`:
+
+```env
+# Production API endpoint
+VITE_API_URL=/api/v1
+
+# Central Backend URL
+VITE_BACKEND_URL=https://propconnect.nbpropertytech.com
 ```
 
 ---
 
-## 🚀 Production Deployment (`listing.nbpropertytech.com`)
+## 🚀 CI/CD & Hostinger VPS Deployment Guide
 
-Automated continuous deployment is handled via GitHub Actions:
-- **Workflow:** [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
-- **Target URL:** `https://listing.nbpropertytech.com`
+Automated deployments are powered by GitHub Actions in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Every push to `main` builds the optimized production bundle and securely syncs it to your Hostinger VPS via SSH.
 
-### Required GitHub Secrets
+### 1. Configure GitHub Secrets
 
-Configure these in **Repository Settings → Secrets and variables → Actions**:
+Navigate to **GitHub Repository → Settings → Secrets and variables → Actions** and add the following repository secrets:
 
-| Secret Name | Description | Example / Format |
-|---|---|---|
-| `VPS_HOST` | Hostinger VPS Public IP Address | `<your-server-ip>` |
-| `VPS_USERNAME` | SSH User | `root` |
-| `VPS_SSH_KEY` | Dedicated OpenSSH ed25519 Private Key | `-----BEGIN OPENSSH PRIVATE KEY----- ...` |
-| `VPS_SSH_PASSWORD` | Fallback SSH password (if key omitted) | `<your-ssh-password>` |
-| `VPS_PORT` | SSH Port (default: `22`) | `22` |
+| Secret Name | Required | Description | Example / Default |
+|---|---|---|---|
+| `VPS_HOST` | **Yes** | Hostinger VPS Public IP or hostname | `185.199.xxx.xxx` |
+| `VPS_USERNAME` | No | SSH username on VPS | `root` (default) |
+| `VPS_SSH_KEY` | **Recommended** | OpenSSH Private Key (`~/.ssh/id_rsa` or `id_ed25519`) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `VPS_SSH_PASSWORD`| Fallback | SSH user password (used if key not provided) | `<your-root-password>` |
+| `VPS_PORT` | No | SSH port | `22` (default) |
+| `VPS_LISTING_PATH`| No | Target directory on VPS | `/var/www/propkart-listing` |
+
+### 2. Hostinger VPS Server Setup (One-Time)
+
+Log into your Hostinger VPS via terminal:
+
+```bash
+ssh root@<YOUR_VPS_IP>
+
+# Create deployment directory
+mkdir -p /var/www/propkart-listing
+chown -R www-data:www-data /var/www/propkart-listing
+chmod -R 755 /var/www/propkart-listing
+```
+
+### 3. Nginx Configuration for Hostinger VPS
+
+Create or edit `/etc/nginx/sites-available/propkart-listing`:
+
+```nginx
+server {
+    listen 80;
+    server_name listing.nbpropertytech.com;
+
+    root /var/www/propkart-listing;
+    index index.html;
+
+    # Gzip Compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss text/javascript;
+
+    # Single Page Application routing fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache static assets aggressively
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+}
+```
+
+Enable the site and reload Nginx:
+```bash
+ln -s /etc/nginx/sites-available/propkart-listing /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
+```
+
+### 4. Enable Free SSL via Let's Encrypt (Certbot)
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d listing.nbpropertytech.com
+```
+
+### 5. Automated CI/CD Trigger
+
+Once GitHub Secrets are in place, any commit pushed to the `main` branch will automatically trigger `.github/workflows/deploy.yml`:
+1. Checkout the latest code
+2. Install dependencies
+3. Build the production Vite bundle
+4. Securely upload the bundle to `/var/www/propkart-listing/` on the Hostinger VPS
+5. Set permissions and reload Nginx / web services
+
+---
+
+## 🏛️ Regulatory & Company Information
+
+- **Company**: NB Property Technology Pvt. Ltd.
+- **RERA Registration**: `AG/GJ/AHMEDABAD/AHMEDABAD CITY/AA06870/170831R1`
+- **Official Property Showcase**: Ahmedabad, Gujarat
 
 ---
 
 ## 📄 License
 
-Proprietary software. All rights reserved by **NB Property Technology**.
+Proprietary © NB Property Technology Pvt Ltd. All rights reserved.

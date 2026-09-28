@@ -1,58 +1,94 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ListingProperty, ListingType } from './types/listing';
-import { fetchPublishedListings } from './services/listingApi';
+import {
+  fetchPublishedListings,
+  fetchAssistancePhone,
+  DEFAULT_ASSISTANCE_PHONE,
+} from './services/listingApi';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
-import { PropertyCard } from './components/PropertyCard';
+import { ChannelCardsSection } from './components/ChannelCardsSection';
+import { CategoryPageView } from './components/CategoryPageView';
 import { PropertyDetailModal } from './components/PropertyDetailModal';
+import { ListPropertyModal } from './components/ListPropertyModal';
 import { Footer } from './components/Footer';
-import {
-  Building2,
-  X,
-  Loader2,
-  Sparkles,
-  SlidersHorizontal,
-} from 'lucide-react';
 
 export const App: React.FC = () => {
   const [properties, setProperties] = useState<ListingProperty[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<ListingType>('Pre-sales');
+
+  // View state: 'landing' (Universal search strip above-fold, 3 cards on scroll down) vs 'category' (Separate page with all filters)
+  const [currentView, setCurrentView] = useState<'landing' | 'category'>('landing');
+  const [selectedSection, setSelectedSection] = useState<ListingType | 'all'>('Pre-sales');
+
+  // Search & Filter state (Used inside the particular card / separate page)
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [universalSearchQuery, setUniversalSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedBhk, setSelectedBhk] = useState<string>('all');
-  const [selectedProperty, setSelectedProperty] = useState<ListingProperty | null>(null);
 
-  const loadProperties = async () => {
-    setLoading(true);
+  // Modals & Metadata
+  const [selectedProperty, setSelectedProperty] = useState<ListingProperty | null>(null);
+  const [isListModalOpen, setIsListModalOpen] = useState<boolean>(false);
+  const [assistancePhone, setAssistancePhone] = useState<string>(DEFAULT_ASSISTANCE_PHONE);
+
+  // Load published properties and assistance contact phone
+  const loadData = async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     try {
-      const data = await fetchPublishedListings();
-      setProperties(data);
+      const [publishedData, phone] = await Promise.all([
+        fetchPublishedListings(),
+        fetchAssistancePhone(),
+      ]);
+
+      setProperties(publishedData);
+      if (phone) setAssistancePhone(phone);
     } catch (e) {
-      console.error('Failed to load published listings', e);
+      console.error('Failed to sync published listings', e);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
+  // Initial load + Realtime Polling Sync (every 1.5 seconds)
   useEffect(() => {
-    loadProperties();
+    loadData(true);
 
-    // Auto-sync across browser tabs when user toggles in PropKart Panel desk
+    const pollInterval = setInterval(() => {
+      loadData(false);
+    }, 1500);
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('propkart_listing_channel');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'LISTING_TOGGLED' || event.data?.type === 'INVENTORY_UPDATED') {
+          loadData(false);
+        }
+      };
+    } catch (e) {}
+
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'propkart_panel_listings_inventory') {
-        loadProperties();
+      if (e.key === 'propkart_panel_listings_inventory' || e.key === 'propkart_assistance_phone') {
+        loadData(false);
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearInterval(pollInterval);
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
-  // Filtered properties
+  // Filtered properties based on active section, category, BHK, and search query
   const filteredProperties = useMemo(() => {
     return properties.filter((p) => {
-      // 1. Transaction Tab: Pre-sales, Rent, Re-sale
-      if (p.listing_type !== activeTab) return false;
+      // 1. Transaction Channel: Pre-sales, Rent, Re-sale (or 'all' for universal search)
+      if (selectedSection !== 'all' && p.listing_type !== selectedSection) {
+        return false;
+      }
 
       // 2. Category Filter (Residential, Commercial, Industrial, Land & Plot)
       if (selectedCategory !== 'all' && p.property_category !== selectedCategory) {
@@ -70,16 +106,17 @@ export const App: React.FC = () => {
         const matchesTitle = p.title.toLowerCase().includes(q);
         const matchesLocality = (p.locality || '').toLowerCase().includes(q);
         const matchesCity = (p.city || '').toLowerCase().includes(q);
-        const matchesDeveloper = (p.developer || '').toLowerCase().includes(q);
+        const matchesDeveloper = (p.developer || p.owner_name || '').toLowerCase().includes(q);
         const matchesSubtype = (p.property_sub_type || '').toLowerCase().includes(q);
-        if (!matchesTitle && !matchesLocality && !matchesCity && !matchesDeveloper && !matchesSubtype) {
+        const matchesCode = (p.registration_code || '').toLowerCase().includes(q);
+        if (!matchesTitle && !matchesLocality && !matchesCity && !matchesDeveloper && !matchesSubtype && !matchesCode) {
           return false;
         }
       }
 
       return true;
     });
-  }, [properties, activeTab, selectedCategory, selectedBhk, searchQuery]);
+  }, [properties, selectedSection, selectedCategory, selectedBhk, searchQuery]);
 
   // Tab counts
   const counts = useMemo(() => {
@@ -87,116 +124,131 @@ export const App: React.FC = () => {
       'Pre-sales': properties.filter((p) => p.listing_type === 'Pre-sales').length,
       Rent: properties.filter((p) => p.listing_type === 'Rent').length,
       'Re-sale': properties.filter((p) => p.listing_type === 'Re-sale').length,
+      Total: properties.length,
     };
   }, [properties]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
+    setUniversalSearchQuery('');
     setSelectedCategory('all');
     setSelectedBhk('all');
   };
 
+  // User clicked one of the 3 cards
+  const handleSelectCard = (type: ListingType) => {
+    setSelectedSection(type);
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setSelectedBhk('all');
+    setCurrentView('category');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // User submitted search from universal search strip on landing page
+  const handleUniversalSearchSubmit = () => {
+    setSearchQuery(universalSearchQuery);
+    setSelectedSection('all');
+    setSelectedCategory('all');
+    setSelectedBhk('all');
+    setCurrentView('category');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Return to landing page
+  const handleBackToHome = () => {
+    setCurrentView('landing');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Smooth scroll down to 3 cards
+  const handleScrollToCards = () => {
+    const el = document.getElementById('channel-cards');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-brand-500 selection:text-white">
-      {/* Light Theme Navbar */}
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-emerald-500 selection:text-white relative">
+      {/* 100% Transparent Header with Logo & "NB Listing" only (Zero shadow) */}
       <Header
-        activeTab={activeTab}
-        onSelectTab={(tab) => {
-          setActiveTab(tab);
-          setSelectedCategory('all');
-        }}
-        publishedCount={properties.length}
+        onGoHome={handleBackToHome}
+        variant={currentView === 'landing' ? 'light' : 'dark'}
       />
 
-      {/* Hero Section with uploaded architectural image & search */}
-      <HeroSection
-        activeTab={activeTab}
-        onSelectTab={(tab) => {
-          setActiveTab(tab);
-          setSelectedCategory('all');
-        }}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-        selectedBhk={selectedBhk}
-        onBhkChange={setSelectedBhk}
-        onSearchSubmit={() => {}}
-        counts={counts}
-      />
+      {/* Main Content Router */}
+      {currentView === 'landing' ? (
+        /* ==================================================== */
+        /* LANDING PAGE VIEW:                                   */
+        /* 1. First Screen: Simple Long Search Strip & 3D Typo  */
+        /*    (NO filters, NO cards on main landing page)       */
+        /* 2. Scroll Down: Shows 3 Channel Cards               */
+        /* 3. Footer: Contains Assistance Phone & List Property */
+        /* ==================================================== */
+        <main className="flex-1">
+          {/* Above-the-fold Hero with Long Strip Search Bar */}
+          <HeroSection
+            universalSearchQuery={universalSearchQuery}
+            onUniversalSearchChange={setUniversalSearchQuery}
+            onSearchSubmit={handleUniversalSearchSubmit}
+            onScrollToCards={handleScrollToCards}
+          />
 
-      {/* Main Showcase Property Feed */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-200 gap-3">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-                Verified {activeTab} Properties
-              </h2>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
-                {filteredProperties.length} Available
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Directly managed via PropKart Operations Desk • 100% verified specifications and pricing.
-            </p>
-          </div>
-
-          {(searchQuery || selectedCategory !== 'all' || selectedBhk !== 'all') && (
-            <button
-              onClick={handleResetFilters}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Clear Search Filters</span>
-            </button>
-          )}
-        </div>
-
-        {/* Content State */}
-        {loading ? (
-          <div className="py-24 flex flex-col items-center justify-center text-slate-500 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-            <span className="text-xs font-semibold">Loading verified properties...</span>
-          </div>
-        ) : filteredProperties.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center text-slate-500 space-y-3 mt-6 shadow-apple-sm">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-800">No {activeTab} properties match your filters</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-              No published properties found under {activeTab} matching your selected filters. Try broadening your criteria or reset the search.
-            </p>
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#1d1d1f] hover:bg-black mt-2 cursor-pointer shadow-apple-sm"
-            >
-              <span>View All {activeTab}</span>
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6">
-            {filteredProperties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onViewDetails={setSelectedProperty}
-              />
-            ))}
-          </div>
-        )}
-      </main>
+          {/* When scrolled down: The 3 Channel Cards */}
+          <ChannelCardsSection
+            counts={counts}
+            onSelectCard={handleSelectCard}
+          />
+        </main>
+      ) : (
+        /* ==================================================== */
+        /* SEPARATE PAGE VIEW: DEDICATED CHANNEL & ALL FILTERS  */
+        /* (Filters, categories, BHK, and search live here)     */
+        /* ==================================================== */
+        <main className="flex-1 pt-20">
+          <CategoryPageView
+            selectedSection={selectedSection}
+            onSelectSection={(sec) => {
+              setSelectedSection(sec);
+              setSelectedCategory('all');
+            }}
+            onBackToHome={handleBackToHome}
+            properties={filteredProperties}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            selectedBhk={selectedBhk}
+            onBhkChange={setSelectedBhk}
+            onResetFilters={handleResetFilters}
+            counts={counts}
+            onViewDetails={setSelectedProperty}
+            assistancePhone={assistancePhone}
+            onOpenListModal={() => setIsListModalOpen(true)}
+            loading={loading}
+          />
+        </main>
+      )}
 
       {/* Property Details Lightbox Modal */}
       <PropertyDetailModal
         property={selectedProperty}
         onClose={() => setSelectedProperty(null)}
+        assistancePhone={assistancePhone}
       />
 
-      {/* Light Theme Footer */}
-      <Footer />
+      {/* Category Selection Modal for "List Property" */}
+      <ListPropertyModal
+        isOpen={isListModalOpen}
+        onClose={() => setIsListModalOpen(false)}
+      />
+
+      {/* Footer with Assistance Phone & List Property Button */}
+      <Footer
+        assistancePhone={assistancePhone}
+        onOpenListModal={() => setIsListModalOpen(true)}
+      />
     </div>
   );
 };

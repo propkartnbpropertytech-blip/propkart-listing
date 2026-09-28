@@ -1,11 +1,13 @@
-name: Deploy PropKart Listing to VPS
+name: Deploy PropKart Listing to Hostinger VPS
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
+    name: Build & Deploy Public Listing Portal
     runs-on: ubuntu-latest
 
     steps:
@@ -31,13 +33,17 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+          VPS_PASSWORD: ${{ secrets.VPS_SSH_PASSWORD || secrets.VPS_PASSWORD }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
+          DEPLOY_PATH: ${{ secrets.VPS_LISTING_PATH || '/var/www/propkart-listing' }}
         run: |
-          echo ">>> Initiating VPS deployment for PropKart Listing (listing.nbpropertytech.com)..."
+          echo "=========================================================="
+          echo " Initiating Hostinger VPS CI/CD for PropKart Listing"
+          echo " Target Showcase: listing.nbpropertytech.com"
+          echo "=========================================================="
 
-          # Validate required host configuration
+          # Check required Host
           if [ -z "$VPS_HOST" ]; then
             echo "::error::Missing required secret 'VPS_HOST'. Please configure it in GitHub Repository Settings -> Secrets and variables -> Actions."
             exit 1
@@ -49,8 +55,13 @@ jobs:
           [ -z "$TARGET_PORT" ] && TARGET_PORT="22"
           TARGET_USER=$(printf '%s' "${VPS_USERNAME:-root}" | tr -d '\r\n"' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
           [ -z "$TARGET_USER" ] && TARGET_USER="root"
+          TARGET_PATH=$(printf '%s' "$DEPLOY_PATH" | tr -d '\r\n"')
+          [ -z "$TARGET_PATH" ] && TARGET_PATH="/var/www/propkart-listing"
 
-          echo "Target Host configured (length: ${#TARGET_HOST}), User: $TARGET_USER, Port: $TARGET_PORT"
+          echo "Target Host: $TARGET_HOST"
+          echo "Target Port: $TARGET_PORT"
+          echo "Target User: $TARGET_USER"
+          echo "Target Path: $TARGET_PATH"
 
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
@@ -67,7 +78,7 @@ jobs:
               [ -f "$HOME/.ssh/deploy_key" ] && echo "  IdentityFile $HOME/.ssh/deploy_key"
               echo "  StrictHostKeyChecking no"
               echo "  UserKnownHostsFile /dev/null"
-              echo "  ConnectTimeout 15"
+              echo "  ConnectTimeout 20"
               echo "  ServerAliveInterval 30"
               echo "  ServerAliveCountMax 3"
             } > "$HOME/.ssh/config"
@@ -76,33 +87,33 @@ jobs:
 
           AUTH_SUCCESS=false
 
-          # 1. Try OpenSSH Deployment Key
+          # 1. Try OpenSSH Key Authentication
           if [ -n "$VPS_SSH_KEY" ]; then
-            echo ">>> Configuring dedicated OpenSSH deployment key..."
+            echo ">>> Configuring OpenSSH deploy key..."
             printf '%s\n' "$VPS_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/deploy_key"
             chmod 600 "$HOME/.ssh/deploy_key"
 
             write_ssh_config "$TARGET_HOST" "$TARGET_PORT" "$TARGET_USER"
 
-            echo ">>> Testing SSH key authentication..."
-            if ssh -o BatchMode=yes vps-target "echo '>>> SSH key authentication successful!'"; then
+            echo ">>> Testing SSH key connectivity..."
+            if ssh -o BatchMode=yes vps-target "echo '>>> SSH Key authentication established.'"; then
               AUTH_SUCCESS=true
             else
-              echo "::warning::SSH key authentication to $TARGET_HOST:$TARGET_PORT failed."
+              echo "::warning::SSH Key authentication failed, testing password fallback if provided."
             fi
           fi
 
-          # 2. Fallback to Password Authentication with sshpass if key not set or failed
+          # 2. Try Password authentication fallback with sshpass
           if [ "$AUTH_SUCCESS" = false ] && [ -n "$VPS_PASSWORD" ]; then
-            echo ">>> Attempting SSH password authentication..."
+            echo ">>> Setting up password authentication with sshpass..."
             sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
             export SSHPASS="$VPS_PASSWORD"
 
             rm -f "$HOME/.ssh/deploy_key"
             write_ssh_config "$TARGET_HOST" "$TARGET_PORT" "$TARGET_USER"
 
-            echo ">>> Testing SSH password authentication..."
-            if sshpass -e ssh -o ConnectTimeout=15 vps-target "echo '>>> SSH authentication successful via password!'"; then
+            echo ">>> Testing SSH password connectivity..."
+            if sshpass -e ssh -o ConnectTimeout=20 vps-target "echo '>>> SSH Password authentication established.'"; then
               AUTH_SUCCESS=true
             else
               echo "::warning::Password connection to $TARGET_HOST failed."
@@ -110,19 +121,33 @@ jobs:
           fi
 
           if [ "$AUTH_SUCCESS" = false ]; then
-            echo "::error::SSH authentication to VPS failed. Please verify VPS_HOST, VPS_SSH_KEY or VPS_SSH_PASSWORD in GitHub Secrets."
+            echo "::error::SSH authentication failed. Please configure VPS_SSH_KEY or VPS_SSH_PASSWORD in repository Secrets."
             exit 1
           fi
 
-          echo ">>> Transferring production assets to /root/propconnect-stack/listing-dist..."
+          # 3. Transfer production assets
+          echo ">>> Ensuring destination directory exists on Hostinger VPS ($TARGET_PATH)..."
           if [ -f "$HOME/.ssh/deploy_key" ]; then
-            ssh vps-target "mkdir -p /root/propconnect-stack/listing-dist"
-            scp -r dist/* vps-target:/root/propconnect-stack/listing-dist/
-            ssh vps-target "docker restart propconnect-web 2>/dev/null || true"
+            ssh vps-target "mkdir -p $TARGET_PATH"
+            echo ">>> Uploading build artifacts..."
+            scp -r dist/* vps-target:"$TARGET_PATH/"
+            # Also sync to docker stack path if it exists
+            ssh vps-target "[ -d /root/propconnect-stack/listing-dist ] && cp -r dist/* /root/propconnect-stack/listing-dist/ || true"
+            echo ">>> Setting correct permissions..."
+            ssh vps-target "chown -R www-data:www-data $TARGET_PATH 2>/dev/null || true; chmod -R 755 $TARGET_PATH 2>/dev/null || true"
+            echo ">>> Reloading Nginx / Docker services..."
+            ssh vps-target "systemctl reload nginx 2>/dev/null || nginx -s reload 2>/dev/null || docker restart propconnect-web 2>/dev/null || true"
           else
-            sshpass -e ssh vps-target "mkdir -p /root/propconnect-stack/listing-dist"
-            sshpass -e scp -r dist/* vps-target:/root/propconnect-stack/listing-dist/
-            sshpass -e ssh vps-target "docker restart propconnect-web 2>/dev/null || true"
+            sshpass -e ssh vps-target "mkdir -p $TARGET_PATH"
+            echo ">>> Uploading build artifacts..."
+            sshpass -e scp -r dist/* vps-target:"$TARGET_PATH/"
+            sshpass -e ssh vps-target "[ -d /root/propconnect-stack/listing-dist ] && cp -r dist/* /root/propconnect-stack/listing-dist/ || true"
+            echo ">>> Setting correct permissions..."
+            sshpass -e ssh vps-target "chown -R www-data:www-data $TARGET_PATH 2>/dev/null || true; chmod -R 755 $TARGET_PATH 2>/dev/null || true"
+            echo ">>> Reloading Nginx / Docker services..."
+            sshpass -e ssh vps-target "systemctl reload nginx 2>/dev/null || nginx -s reload 2>/dev/null || docker restart propconnect-web 2>/dev/null || true"
           fi
 
-          echo ">>> PropKart Listing successfully deployed to listing.nbpropertytech.com!"
+          echo "=========================================================="
+          echo " ✔ PropKart Listing deployed successfully to Hostinger VPS!"
+          echo "=========================================================="

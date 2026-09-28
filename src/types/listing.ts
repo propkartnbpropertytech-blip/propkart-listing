@@ -22,9 +22,17 @@ export interface ListingProperty {
   images: string[];
   videos?: string[];
   is_published: boolean; // Must be true to display
+  approval_status?: 'Pending' | 'Approved' | 'Rejected';
+  is_approved?: boolean;
+  source?: string;
+  registration_code?: string;
   developer?: string; // Pre-sales specific
   possession_date?: string; // Pre-sales specific
   rera_number?: string; // Pre-sales specific
+  owner_name?: string;
+  owner_phone?: string;
+  contact_person?: string;
+  contact_phone?: string;
   amenities?: string[];
   raw_data?: Record<string, any>;
   created_at: string;
